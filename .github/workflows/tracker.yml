@@ -11,7 +11,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests
           curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
           chmod +x cloudflared
 
@@ -19,12 +18,7 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          # test webhook works
-          curl -s -X POST "$DISCORD_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d '{"content": "✅ Webhook test works"}'
-
-          DISCORD_WEBHOOK=$DISCORD_WEBHOOK python server.py &
+          python server.py &
           sleep 3
           ./cloudflared tunnel --url http://localhost:8080 > /tmp/cf.log 2>&1 &
           sleep 10
@@ -32,4 +26,19 @@ jobs:
           curl -s -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
             -d "{\"content\": \"🔗 **Tracker is live!**\n\`\`\`${LINK}\`\`\`\"}"
-          wait
+
+          # watch log file and send new hits to discord
+          touch /tmp/hits.log
+          tail -f /tmp/hits.log | while read line; do
+            if [ "$line" = "---" ]; then
+              MSG=$(cat /tmp/current_hit.txt 2>/dev/null)
+              if [ -n "$MSG" ]; then
+                curl -s -X POST "$DISCORD_WEBHOOK" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"content\": \"🎯 **New Hit!**\n\`\`\`${MSG}\`\`\`\"}"
+                rm -f /tmp/current_hit.txt
+              fi
+            else
+              echo "$line" >> /tmp/current_hit.txt
+            fi
+          done
