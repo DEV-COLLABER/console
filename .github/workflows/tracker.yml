@@ -27,18 +27,19 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"content\": \"🔗 **Tracker is live!**\n\`\`\`${LINK}\`\`\`\"}"
 
-          # watch log file and send new hits to discord
           touch /tmp/hits.log
-          tail -f /tmp/hits.log | while read line; do
-            if [ "$line" = "---" ]; then
-              MSG=$(cat /tmp/current_hit.txt 2>/dev/null)
-              if [ -n "$MSG" ]; then
+          LAST=0
+          while true; do
+            sleep 5
+            if [ -s /tmp/hits.log ]; then
+              SIZE=$(wc -c < /tmp/hits.log)
+              if [ "$SIZE" != "$LAST" ]; then
+                LAST=$SIZE
+                MSG=$(cat /tmp/hits.log | python3 -c "import sys,json; print(json.dumps({'content': '🎯 **New Hit!**\n\`\`\`' + sys.stdin.read() + '\`\`\`'}))")
                 curl -s -X POST "$DISCORD_WEBHOOK" \
                   -H "Content-Type: application/json" \
-                  -d "{\"content\": \"🎯 **New Hit!**\n\`\`\`${MSG}\`\`\`\"}"
-                rm -f /tmp/current_hit.txt
+                  -d "$MSG"
+                truncate -s 0 /tmp/hits.log
               fi
-            else
-              echo "$line" >> /tmp/current_hit.txt
             fi
           done
