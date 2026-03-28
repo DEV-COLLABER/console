@@ -123,7 +123,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if self.path == '/' or self.path == '/index.html':
-            ip = self.client_address[0]
+            ip = self.headers.get("CF-Connecting-IP") or self.headers.get("X-Forwarded-For") or self.client_address[0]
             ua = self.headers.get('User-Agent', 'unknown')
             log_hit(ip, ua)
             with open('index.html', 'rb') as f:
@@ -153,7 +153,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/track':
             try:
                 data = json.loads(body)
-                ip = self.client_address[0]
+                ip = self.headers.get("CF-Connecting-IP") or self.headers.get("X-Forwarded-For") or self.client_address[0]
                 ua = self.headers.get('User-Agent', 'unknown')
                 log_hit(ip, ua, extra=data)
             except Exception as e:
