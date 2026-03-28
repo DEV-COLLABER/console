@@ -15,31 +15,7 @@ jobs:
           chmod +x cloudflared
 
       - name: Run tracker
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           python server.py &
           sleep 3
-          ./cloudflared tunnel --url http://localhost:8080 > /tmp/cf.log 2>&1 &
-          sleep 10
-          LINK=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
-          curl -s -X POST "$DISCORD_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{\"content\": \"🔗 **Tracker is live!**\n\`\`\`${LINK}\`\`\`\"}"
-
-          touch /tmp/hits.log
-          LAST=0
-          while true; do
-            sleep 5
-            if [ -s /tmp/hits.log ]; then
-              SIZE=$(wc -c < /tmp/hits.log)
-              if [ "$SIZE" != "$LAST" ]; then
-                LAST=$SIZE
-                MSG=$(cat /tmp/hits.log | python3 -c "import sys,json; print(json.dumps({'content': '🎯 **New Hit!**\n\`\`\`' + sys.stdin.read() + '\`\`\`'}))")
-                curl -s -X POST "$DISCORD_WEBHOOK" \
-                  -H "Content-Type: application/json" \
-                  -d "$MSG"
-                truncate -s 0 /tmp/hits.log
-              fi
-            fi
-          done
+          ./cloudflared tunnel --url http://localhost:8080 2>&1 | grep --line-buffered -o 'https://[a-z0-9-]*\.trycloudflare\.com'
