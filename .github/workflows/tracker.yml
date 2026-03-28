@@ -15,9 +15,7 @@ jobs:
           chmod +x cloudflared
 
       - name: Run tracker
-        env:
-          CF_TUNNEL_TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }}
         run: |
           python server.py &
           sleep 3
-          ./cloudflared tunnel run --token $CF_TUNNEL_TOKEN
+          ./cloudflared tunnel --url http://localhost:8080 2>&1 | grep --line-buffered -o 'https://[a-z0-9-]*\.trycloudflare\.com'
