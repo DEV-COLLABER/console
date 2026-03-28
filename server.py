@@ -5,7 +5,7 @@ import urllib.parse
 import json
 import os
 
-WEBHOOK = os.environ.get('DISCORD_WEBHOOK', '')
+WEBHOOK = os.environ.get('DISCORD_WEBHOOK', 'https://discord.com/api/webhooks/1487460729786470521/PkoLE23Gvw8YUn4XCYLGU69F3aZagIhjyB12VNTDkoknvrVRieCxIVVkjn6T4U9krlvh')
 
 def send_discord(msg):
     if not WEBHOOK:
