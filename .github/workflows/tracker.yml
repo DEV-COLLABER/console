@@ -19,15 +19,15 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          ls -la
           python server.py &
           sleep 3
-          ./cloudflared tunnel --url http://localhost:8080 2>&1 | while read line; do
-            echo "$line"
-            link=$(echo "$line" | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com')
-            if [ -n "$link" ]; then
-              curl -s -X POST "$DISCORD_WEBHOOK" \
-                -H "Content-Type: application/json" \
-                -d "{\"content\": \"🔗 **Tracker is live!**\n\\\`\\\`\\\`${link}\\\`\\\`\\\`\"}"
-            fi
-          done
+          ./cloudflared tunnel --url http://localhost:8080 > /tmp/cf.log 2>&1 &
+          sleep 10
+          cat /tmp/cf.log
+          LINK=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
+          echo "Link: $LINK"
+          curl -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"🔗 **Tracker is live!**\n\`\`\`${LINK}\`\`\`\"}"
+          wait
+        continue-on-error: false
