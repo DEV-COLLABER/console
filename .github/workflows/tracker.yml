@@ -19,7 +19,11 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          export DISCORD_WEBHOOK=$DISCORD_WEBHOOK
+          # test webhook works
+          curl -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d '{"content": "✅ Webhook test works"}'
+
           DISCORD_WEBHOOK=$DISCORD_WEBHOOK python server.py &
           sleep 3
           ./cloudflared tunnel --url http://localhost:8080 > /tmp/cf.log 2>&1 &
